@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const { v4: uuidv4, validate } = require('uuid');
+const { request, response } = require('express');
 
 const app = express();
 app.use(express.json());
@@ -9,20 +10,83 @@ app.use(cors());
 
 const users = [];
 
+function isUUID(id) {
+  const validUuid = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+  return validUuid.test(id);
+}
+
 function checksExistsUserAccount(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+
+  const user = users.find((user) => user.username === username)
+
+  if(!user){
+    return response.status(404).json({error: "User does not exist"});
+  }
+
+  request.user = user;
+
+  return next();
+
 }
 
 function checksCreateTodosUserAvailability(request, response, next) {
-  // Complete aqui
+  const { user } = request;
+
+  const numberOfTodos = user.todos.length;
+  const proPlan = user.pro;
+  
+  if(proPlan | (numberOfTodos < 10)) {
+      return next();
+  }
+
+  return response.status(403).json({error: "Free users can not have more than 10 todos"});
+
 }
 
 function checksTodoExists(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+  const { id } = request.params;
+
+  const user = users.find((user) => user.username === username);
+  
+  if(!user) {
+    return response.status(404).json({error: "User Not Found"});
+  }
+  
+  const uuid = isUUID(id);
+  
+  if(!uuid) {
+    return response.status(400).json({error: "ID is Not Valid"});
+  }
+  
+  const todo = user.todos.find((todo) => todo.id === id);
+  
+  if(!todo) {
+    return response.status(404).json({error: "ID not Found"});
+  }
+
+  request.todo = todo;
+  request.user = user;
+
+  return next();
+
+
 }
 
 function findUserById(request, response, next) {
-  // Complete aqui
+  const { id } = request.params;
+
+  const user = users.find((user) => user.id === id);
+
+  if(!user) {
+    return response.status(404).json({error: "User not Found"});
+  }
+
+  request.user = user;
+
+  return next();
+
 }
 
 app.post('/users', (request, response) => {
@@ -45,6 +109,10 @@ app.post('/users', (request, response) => {
   users.push(user);
 
   return response.status(201).json(user);
+});
+
+app.get('/users', (request, response) => {
+  return response.json(users);
 });
 
 app.get('/users/:id', findUserById, (request, response) => {
